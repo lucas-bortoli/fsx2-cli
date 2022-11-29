@@ -1,3 +1,5 @@
+import { Writable } from "node:stream";
+import { stdin } from "process";
 import yargs from "yargs";
 import { openFileSystem, progressBar, readableFileSize, sleep } from "../helpers.js";
 
@@ -20,13 +22,21 @@ export const handler = async (argv) => {
   }
 
   console.log(`Uploading to ${filename}...`);
-  let x = 0;
-  let bytes = 0;
-  while (x <= 100) {
-    progressBar(readableFileSize(bytes), x/100);
-    await sleep(1000);
-    x++;
-    bytes += Math.floor(Math.random() * 300000);
-  }
+
+  const upload = await fsx.beginUpload(filename);
+
+  let stop = false;
+  (async () => {
+    while (!stop) {
+      progressBar(readableFileSize(upload.totalBytes).padStart(9));
+      // progressBar(readableFileSize(bytes).padStart(9), x/100);
+      await sleep(1000);
+    }
+  })();
+
+  process.stdin.pipe(Writable.fromWeb(upload.stream));
+
+  await upload.waitUntilDone();
+  stop = true;
 };
 

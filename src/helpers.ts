@@ -8,8 +8,6 @@ export const select = <T>(...args: T[]) => {
       return item;
     }
   }
-
-  throw new Error("Required parameter missing.");
 };
 
 export const openFileSystem = async (
@@ -24,7 +22,14 @@ export const openFileSystem = async (
   webhook = select(argv.webhook, process.env.FSX_WEBHOOK);
 
   if (!webhook) {
-    console.error(`A webhook required.`);
+    console.error(
+      `A webhook must be specified, either via the --webhook parameter or $FSX_WEBHOOK environment variable.`,
+    );
+    process.exit(1);
+  } else if (!dataFile) {
+    console.error(
+      `A data file must be specified, either via the --drive parameter or $FSX_DRIVE environment variable.`,
+    );
     process.exit(1);
   }
 
@@ -59,10 +64,10 @@ export const progressBar = (label = "", percentage = -1) => {
   }
 
   if (percentage >= 0) {
-    percentage = Math.min(Math.round(percentage * 100.0), 100);
+    percentage = Math.min(Math.round(percentage * 20.0), 20);
 
     components.push(percentage.toString().padStart(3) + "%");
-    components.push("=".repeat(percentage).padEnd(100, " "));
+    components.push("[" + "=".repeat(percentage).padEnd(20, "-") + "]");
   }
 
   process.stderr.write(components.join(" "));
