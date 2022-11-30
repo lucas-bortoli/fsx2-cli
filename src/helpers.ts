@@ -1,6 +1,7 @@
 import { FileSystem, Webhook } from "@lucas-bortoli/libfsx";
-import { readFile } from "fs/promises";
+import fsp from "fs/promises";
 import { existsSync } from "fs";
+import { dirname } from "path";
 
 export const select = <T>(...args: T[]) => {
   for (const item of args) {
@@ -39,7 +40,7 @@ export const openFileSystem = async (
     let data: Buffer;
 
     try {
-      data = await readFile(dataFile);
+      data = await fsp.readFile(dataFile);
     } catch (error) {
       console.error(`Unable to read data file ${dataFile}: ${error}`);
       process.exit(1);
@@ -53,6 +54,18 @@ export const openFileSystem = async (
   return { fsx, key, dataFile, webhook };
 };
 
+export const saveFileSystem = async (fsx: FileSystem, dataFile: string) => {
+  const fsData = await fsx.export();
+
+  console.error(`Writing data file to: ${dataFile}`);
+
+  if (!existsSync(dirname(dataFile))) {
+    console.error(`Unable to write data file: Containing directory doesn't exist.`);
+  }
+
+  fsp.writeFile(dataFile, fsData);
+};
+
 export const progressBar = (label = "", percentage = -1) => {
   const components: string[] = [];
 
@@ -64,9 +77,10 @@ export const progressBar = (label = "", percentage = -1) => {
   }
 
   if (percentage >= 0) {
+    const unrounded = Math.min(Math.round(percentage * 100.0), 100);
     percentage = Math.min(Math.round(percentage * 20.0), 20);
 
-    components.push(percentage.toString().padStart(3) + "%");
+    components.push(unrounded.toString().padStart(3) + "%");
     components.push("[" + "=".repeat(percentage).padEnd(20, "-") + "]");
   }
 
@@ -85,4 +99,21 @@ export const readableFileSize = (size: number): string => {
     ++i;
   }
   return size.toFixed(2) + " " + units[i];
+};
+
+export const startSubroutine = (callbackFn: () => Promise<void>, interval: number) => {
+  let stop = false;
+
+  (async () => {
+    while (!stop) {
+      await callbackFn();
+      await sleep(interval);
+    }
+  })();
+
+  return {
+    stop: () => {
+      stop = true;
+    },
+  };
 };

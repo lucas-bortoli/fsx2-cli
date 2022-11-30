@@ -1,7 +1,7 @@
 import { Writable } from "node:stream";
 import { stdin } from "process";
 import yargs from "yargs";
-import { openFileSystem, progressBar, readableFileSize, sleep } from "../helpers.js";
+import { openFileSystem, progressBar, readableFileSize, saveFileSystem, sleep, startSubroutine } from "../helpers.js";
 
 export const command = "upload <filename>";
 export const describe = "upload a file from stdin to the specified location";
@@ -13,7 +13,7 @@ export const builder = (yargs: yargs.Argv) => {
 
 export const handler = async (argv) => {
   const { filename } = argv;
-  const { fsx } = await openFileSystem(argv);
+  const { fsx, dataFile } = await openFileSystem(argv);
 
   if (process.stdin.isTTY) {
     console.error("Pipe some data to this command to start an upload.");
@@ -25,18 +25,18 @@ export const handler = async (argv) => {
 
   const upload = await fsx.beginUpload(filename);
 
-  let stop = false;
-  (async () => {
-    while (!stop) {
-      progressBar(readableFileSize(upload.totalBytes).padStart(9));
-      // progressBar(readableFileSize(bytes).padStart(9), x/100);
-      await sleep(1000);
-    }
-  })();
+  const statusRoutine = startSubroutine(async () => {
+    progressBar(readableFileSize(upload.totalBytes).padStart(9));
+  }, 1000);
 
   process.stdin.pipe(Writable.fromWeb(upload.stream));
 
   await upload.waitUntilDone();
-  stop = true;
-};
+  statusRoutine.stop();
 
+  // Finish progress bar
+  progressBar(readableFileSize(upload.totalBytes).padStart(9));
+  console.error("");
+
+  saveFileSystem(fsx, dataFile);
+};
