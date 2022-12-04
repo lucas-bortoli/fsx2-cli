@@ -33,6 +33,4 @@ export const handler = async (argv) => {
   fsx.move(source, target);
 
   await saveFileSystem(fsx, dataFile);
-
-  await (await import("./ls.js")).handler({ ...argv, directory: dirname(target) });
 };

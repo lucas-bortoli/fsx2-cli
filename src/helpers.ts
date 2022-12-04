@@ -56,10 +56,9 @@ export const openFileSystem = async (
 };
 
 export const saveFileSystem = async (fsx: FileSystem, dataFile: string) => {
-  dataFile += "_";
   const fsData = await fsx.export();
 
-  console.error(`Writing data file to: ${dataFile}`);
+  // console.error(`Writing data file to: ${dataFile}`);
 
   if (!existsSync(dirname(dataFile))) {
     console.error(`Unable to write data file: Containing directory doesn't exist.`);
