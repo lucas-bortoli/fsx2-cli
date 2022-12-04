@@ -2,6 +2,7 @@ import { FileSystem, Webhook } from "@lucas-bortoli/libfsx";
 import fsp from "fs/promises";
 import { existsSync } from "fs";
 import { dirname } from "path";
+import { ErrorCode } from "./errorCodes.js";
 
 export const select = <T>(...args: T[]) => {
   for (const item of args) {
@@ -55,6 +56,7 @@ export const openFileSystem = async (
 };
 
 export const saveFileSystem = async (fsx: FileSystem, dataFile: string) => {
+  dataFile += "_";
   const fsData = await fsx.export();
 
   console.error(`Writing data file to: ${dataFile}`);
@@ -81,7 +83,7 @@ export const progressBar = (label = "", percentage = -1) => {
     percentage = Math.min(Math.round(percentage * 20.0), 20);
 
     components.push(unrounded.toString().padStart(3) + "%");
-    components.push("[" + "=".repeat(percentage).padEnd(20, "-") + "]");
+    components.push("[" + "=".repeat(percentage).padEnd(20, "─") + "]");
   }
 
   process.stderr.write(components.join(" "));
@@ -92,7 +94,7 @@ export const sleep = (ms: number) => {
 };
 
 export const readableFileSize = (size: number): string => {
-  var units = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+  var units = [" B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   var i = 0;
   while (size >= 1024) {
     size /= 1024;
@@ -116,4 +118,86 @@ export const startSubroutine = (callbackFn: () => Promise<void>, interval: numbe
       stop = true;
     },
   };
+};
+
+export const abort = (error: ErrorCode, details: string = ""): never => {
+  console.error(error.message + (details ? ": " + details : ""));
+  process.exit(error.code);
+};
+
+export const table = (
+  alignment: ("left" | "right")[],
+  showHeaders: boolean,
+  data: string[][],
+): string => {
+  let colWidths: number[] = [];
+
+  for (const row of data) {
+    for (const [index, cell] of row.entries()) {
+      if (!colWidths[index]) {
+        colWidths[index] = 0;
+      }
+
+      if (cell.length > colWidths[index]) {
+        colWidths[index] = cell.length;
+      }
+    }
+  }
+
+  let text: string[] = [];
+
+  for (const [rowIndex, row] of data.entries()) {
+    let r: string[] = [];
+
+    for (const [index, cell] of row.entries()) {
+      let text: string = "";
+
+      // Determine alignment type
+      if (alignment[index] === "left") {
+        // Align left
+        text = cell.padEnd(colWidths[index]);
+      } else {
+        // Align right
+        text = cell.padStart(colWidths[index]);
+      }
+
+      r.push(text);
+    }
+
+    text.push(r.join(" │ "));
+
+    if (rowIndex === 0 && showHeaders) {
+      text.push(colWidths.map((width) => "─".repeat(width)).join("─┼─"));
+    }
+  }
+
+  return text.join("\n");
+};
+
+/**
+ * Returns the plural or singular form of the noun, based on the count.
+ * @example plural(2, "child", "children") => "children"
+ * @example plural(1, "child", "children") => "child"
+ * @example plural(0, "child", "children") => "children"
+ * @param count The quantity of the subject
+ * @param singular The singular form of the subject
+ * @param plural The plural form of the subject
+ */
+export const plural = (count: number, singular: string, plural: string): string => {
+  return count === 1 ? singular : plural;
+};
+
+export const resolvePath = (path: string) => {
+  let segments = path.split("/").filter((s) => s.length && s !== ".");
+
+  // Filter .. and .
+  let dotIndex = segments.indexOf("..");
+  while (dotIndex > -1) {
+    dotIndex = segments.indexOf("..");
+
+    // Remove this segment and the previous one
+    segments = [...segments.slice(0, dotIndex - 1), ...segments.slice(dotIndex + 1)];
+  }
+
+  return "/" + segments.join("/");
 };
